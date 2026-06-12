@@ -67,18 +67,15 @@
   .seg label:last-child{border-right:0}
   .seg label:hover{color:var(--ink);background:rgba(255,255,255,.04)}
   .scope-hint{font-size:12.5px;color:var(--faint)}
-  /* скрытые радио, управляющие уровнем (CSS-only, без JS) */
-  .scope-radio{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+  .scope-radio{position:absolute;width:1px;height:1px;margin:0;padding:0;opacity:0}
+  .seg label.is-active{color:var(--bg);background:var(--vpn);font-weight:700}
   .scope-hint b{display:none;font-weight:400}
-  body:has(#scope-min:checked) label[for="scope-min"],
-  body:has(#scope-opt:checked) label[for="scope-opt"],
-  body:has(#scope-max:checked) label[for="scope-max"]{color:var(--bg);background:var(--vpn);font-weight:700}
-  body:has(#scope-min:checked) .h-min,
-  body:has(#scope-opt:checked) .h-opt,
-  body:has(#scope-max:checked) .h-max{display:inline}
-  body:has(#scope-min:checked) #opt,
-  body:has(#scope-min:checked) #max{display:none}
-  body:has(#scope-opt:checked) #max{display:none}
+  body[data-scope="min"] .h-min,
+  body[data-scope="opt"] .h-opt,
+  body[data-scope="max"] .h-max{display:inline}
+  body[data-scope="min"] #opt,
+  body[data-scope="min"] #max{display:none}
+  body[data-scope="opt"] #max{display:none}
 
   .layout{display:grid;grid-template-columns:200px 1fr;gap:46px;padding:36px 0 90px;align-items:start}
   @media (max-width:940px){.layout{grid-template-columns:1fr;gap:0}}
@@ -150,10 +147,7 @@
   footer a{color:var(--muted);text-decoration:none}footer a:hover{color:var(--ink)}
 </style>
 </head>
-<body>
-<input type="radio" name="scope" id="scope-min" class="scope-radio">
-<input type="radio" name="scope" id="scope-opt" class="scope-radio">
-<input type="radio" name="scope" id="scope-max" class="scope-radio" checked>
+<body data-scope="max">
 
 <header>
   <div class="wrap bar">
@@ -194,10 +188,10 @@
 <div class="scopebar">
   <div class="wrap inner">
     <span class="lbl">показать уровень:</span>
-    <div class="seg" role="group" aria-label="Выбор уровня">
-      <label for="scope-min">Минимальный</label>
-      <label for="scope-opt">Оптимальный</label>
-      <label for="scope-max">Максимальный</label>
+    <div class="seg" role="radiogroup" aria-label="Выбор уровня">
+      <label><input type="radio" name="scope" id="scope-min" class="scope-radio" value="min">Минимальный</label>
+      <label><input type="radio" name="scope" id="scope-opt" class="scope-radio" value="opt">Оптимальный</label>
+      <label><input type="radio" name="scope" id="scope-max" class="scope-radio" value="max" checked>Максимальный</label>
     </div>
     <span class="scope-hint">
       <b class="h-min">показан только минимальный уровень</b>
@@ -541,6 +535,22 @@ sudo ufw enable</code></pre></div>
 </footer>
 
 <script>
+  // ---- scope filter ----
+  (function(){
+    var radios=document.querySelectorAll('.scope-radio');
+    function syncScope(){
+      var checked=document.querySelector('.scope-radio:checked');
+      if(!checked) return;
+      document.body.dataset.scope=checked.value;
+      radios.forEach(function(r){
+        var lbl=r.closest('label');
+        if(lbl) lbl.classList.toggle('is-active',r.checked);
+      });
+    }
+    radios.forEach(function(r){ r.addEventListener('change',syncScope); });
+    syncScope();
+  })();
+
   // ---- copy buttons (инжектим в каждый .code-top) ----
   var CLIP='<svg class="clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
   var CHECK='<svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg>';
