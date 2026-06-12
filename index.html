@@ -251,7 +251,7 @@
           <thead><tr><th>Плоскость</th><th>Минимальный (~1ч)</th><th>Оптимальный</th><th>Максимальный</th></tr></thead>
           <tbody>
             <tr><td>Доступ К DGX</td><td>WireGuard-сервер на Keenetic</td><td>+ NetBird mesh (SaaS)</td><td>+ self-hosted NetBird (cloud.ru)</td></tr>
-            <tr><td>GUI</td><td>SSH-туннель</td><td>+ xrdp (hardened)</td><td>—</td></tr>
+            <tr><td>GUI</td><td>SSH + xrdp по VPN</td><td>—</td><td>—</td></tr>
             <tr><td>Доступ С DGX к Claude</td><td>vopono + NL-exit</td><td>+ vopono как systemd</td><td>+ NL-exit как NetBird exit-node</td></tr>
             <tr><td>Firewall</td><td>базовый</td><td>UFW deny-by-default</td><td>+ fail2ban / 2FA</td></tr>
             <tr><td>Локальные модели</td><td>Ollama gpt-oss:20b</td><td>—</td><td>SGLang (NVFP4, RAG)</td></tr>
@@ -269,13 +269,13 @@
           <ul class="clean">
             <li>Вход в роутер: <code class="inl">http://my.keenetic.net</code> (или <code class="inl">192.168.1.1</code>).</li>
             <li>Публичный IP (не CGNAT): <b>Системный монитор → панель «Интернет» → IP-адрес</b>, сравни с <code class="inl">curl ifconfig.me</code> с любого устройства сети. Купленный статический IP — это он. Не совпало или адрес из <code class="inl">10/172.16/192.168/100.64</code> → серый IP/CGNAT, входящий проброс не сработает.</li>
-            <li>Фиксированный IP для сервера (подключение по Wi-Fi роли не играет): <b>Список устройств</b> → выбери сервер → <b>Зарегистрировать</b> и включить <b>«Постоянный IP-адрес»</b> → <code class="inl">192.168.1.50</code>. Работает одинаково для Wi-Fi и кабельных клиентов.</li>
+            <li>Фиксированный IP для сервера (подключение по Wi-Fi роли не играет): <b>Список устройств</b> → выбери сервер → <b>Зарегистрировать</b> и включить <b>«Постоянный IP-адрес»</b> → <code class="inl">192.168.1.100</code>. Работает одинаково для Wi-Fi и кабельных клиентов.</li>
             <li><i>(Опционально, belt-and-suspenders)</i> статика на самом сервере через NetworkManager — держится независимо от роутера. <b>Достаточно регистрации выше;</b> адрес должен быть тот же.</li>
           </ul>
           <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>опционально: статика на сервере (nmcli)</span></div>
 <pre><code>nmcli connection show --active                       <span class="cmt"># узнать имя WiFi-профиля</span>
 nmcli connection modify <span class="str">"&lt;wifi-profile&gt;"</span> ipv4.method manual \
-  ipv4.addresses 192.168.1.50/24 ipv4.gateway 192.168.1.1 ipv4.dns <span class="str">"1.1.1.1 8.8.8.8"</span>
+  ipv4.addresses 192.168.1.100/24 ipv4.gateway 192.168.1.1 ipv4.dns <span class="str">"1.1.1.1 8.8.8.8"</span>
 nmcli connection up <span class="str">"&lt;wifi-profile&gt;"</span></code></pre></div>
         </div>
 
@@ -284,8 +284,8 @@ nmcli connection up <span class="str">"&lt;wifi-profile&gt;"</span></code></pre>
           <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>на клиенте → потом на DGX</span></div>
 <pre><code><span class="cmt"># КЛИЕНТ: ключ + копирование (пока по паролю)</span>
 ssh-keygen -t ed25519 -C <span class="str">"dgx-access"</span>
-ssh-copy-id cloud@192.168.1.50
-ssh cloud@192.168.1.50   <span class="cmt"># проверь вход ПО КЛЮЧУ</span>
+ssh-copy-id &lt;user&gt;@192.168.1.100
+ssh &lt;user&gt;@192.168.1.100   <span class="cmt"># проверь вход ПО КЛЮЧУ</span>
 
 <span class="cmt"># DGX: закрутить гайки</span>
 sudo tee /etc/ssh/sshd_config.d/99-hardening.conf >/dev/null <<'EOF'
@@ -293,7 +293,7 @@ PubkeyAuthentication yes
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin no
-AllowUsers cloud
+AllowUsers &lt;user&gt;
 MaxAuthTries 3
 EOF
 sudo systemctl restart ssh</code></pre></div>
@@ -301,11 +301,11 @@ sudo systemctl restart ssh</code></pre></div>
           <div class="callout note"><div class="h">Альтернатива без VPN: прямой проброс SSH на Keenetic</div>
             <b>Сетевые правила → Переадресация → Добавить правило.</b>
             <b>Вход:</b> твоё интернет-подключение (провайдер).
-            <b>Выход:</b> сервер <code class="inl">192.168.1.50</code> (выбери из списка устройств).
+            <b>Выход:</b> сервер <code class="inl">192.168.1.100</code> (выбери из списка устройств).
             <b>Протокол:</b> TCP.
             <b>Открыть порт</b> (внешний) <code class="inl">49222</code> → <b>переадресовать на порт</b> (внутренний) <code class="inl">22</code>.
             Не пробрасывай внешний <code class="inl">22</code> — на нестандартном порту в разы меньше брутфорса. Keenetic сам открывает фаервол для проброшенного порта. По возможности заполни <b>«Разрешённые адреса источника»</b> своим IP.
-            Заход извне: <code class="inl">ssh -p 49222 cloud@&lt;статический_IP&gt;</code>. Пароль отключён, на сервере <code class="inl">fail2ban</code> (уровень «максимальный») — прямой SSH приемлем. Но <b>рекомендуемый путь — WireGuard-сервер на роутере (шаг 2.3)</b>: тогда наружу не торчит вообще ничего, а SSH ходит внутри туннеля.</div>
+            Заход извне: <code class="inl">ssh -p 49222 &lt;user&gt;@&lt;статический_IP&gt;</code>. Пароль отключён, на сервере <code class="inl">fail2ban</code> (уровень «максимальный») — прямой SSH приемлем. Но <b>рекомендуемый путь — WireGuard-сервер на роутере (шаг 2.3)</b>: тогда наружу не торчит вообще ничего, а SSH ходит внутри туннеля.</div>
         </div>
 
         <div class="step">
@@ -327,7 +327,7 @@ PublicKey = &lt;keenetic_public_key&gt;
 Endpoint = &lt;ДОМАШНИЙ_СТАТИЧЕСКИЙ_IP&gt;:51820
 AllowedIPs = 192.168.1.0/24        <span class="cmt"># вся домашняя сеть, включая сервер</span>
 PersistentKeepalive = 25</code></pre></div>
-          <div class="callout key"><div class="h">Готово</div>Поднимаешь туннель → <code class="inl">ssh cloud@192.168.1.50</code>. SSH никуда наружу не торчит. В мобильном приложении Keenetic пир добавляется в пару кликов с генерацией <b>QR-кода</b>. Проброс портов на роутере не требуется — он сам принимает UDP 51820.</div>
+          <div class="callout key"><div class="h">Готово</div>Поднимаешь туннель → <code class="inl">ssh &lt;user&gt;@192.168.1.100</code>. SSH никуда наружу не торчит. В мобильном приложении Keenetic пир добавляется в пару кликов с генерацией <b>QR-кода</b>. Проброс портов на роутере не требуется — он сам принимает UDP 51820.</div>
 
           <details class="alt">
             <summary>Альтернатива: терминировать WireGuard на сервере (если не доверяешь прошивке роутера или нужен zero-trust строго к одному хосту)</summary>
@@ -359,13 +359,48 @@ PublicKey = &lt;in_server_public_key&gt;
 Endpoint = &lt;ДОМАШНИЙ_СТАТИЧЕСКИЙ_IP&gt;:51820
 AllowedIPs = 10.10.0.1/32
 PersistentKeepalive = 25</code></pre></div>
-              <div class="callout note"><div class="h">Keenetic: проброс на сервер</div><b>Сетевые правила → Переадресация → Добавить правило</b>: вход — интернет-подключение; выход — сервер <code class="inl">192.168.1.50</code>; протокол <b>UDP</b>; внешний <code class="inl">51820</code> → внутренний <code class="inl">51820</code>. Больше ничего наружу.</div>
+              <div class="callout note"><div class="h">Keenetic: проброс на сервер</div><b>Сетевые правила → Переадресация → Добавить правило</b>: вход — интернет-подключение; выход — сервер <code class="inl">192.168.1.100</code>; протокол <b>UDP</b>; внешний <code class="inl">51820</code> → внутренний <code class="inl">51820</code>. Больше ничего наружу.</div>
             </div>
           </details>
         </div>
 
         <div class="step">
-          <div class="st-h"><span class="n">2.4</span>VPS Нидерланды (adminvps): WireGuard-exit<span class="tm">⏱ 15м</span></div>
+          <div class="st-h"><span class="n">2.4</span>Доступ к DGX по VPN: SSH + xrdp<span class="tm">⏱ 10м</span></div>
+          <p class="muted">Туннель поднят — до DGX <code class="inl">192.168.1.100</code> ты дотягиваешься как из локалки. Работают <b>оба</b> способа, это не «или-или»: SSH для терминала, xrdp для полноценного графического рабочего стола. Ставь что нужно (или оба).</p>
+          <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>SSH: проверить сервер на DGX</span></div>
+<pre><code>sudo systemctl status ssh
+<span class="cmt"># не активен:</span> sudo apt install -y openssh-server && sudo systemctl enable --now ssh</code></pre></div>
+          <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>подключение из Windows (при поднятом WireGuard)</span></div>
+<pre><code>ssh &lt;user&gt;@192.168.1.100</code></pre></div>
+          <p class="muted">Если ещё не сделал — закрути key-only (§2.2): вход по ключу, <code class="inl">PasswordAuthentication no</code>. SSH — рабочая лошадка DGX: весь CLI, Claude Code, docker, модели.</p>
+          <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>xrdp: установка графического рабочего стола</span></div>
+<pre><code>sudo apt update && sudo apt install -y xrdp
+sudo adduser xrdp ssl-cert
+sudo systemctl enable --now xrdp</code></pre></div>
+          <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>фикс «чёрного экрана» на GNOME/Wayland (Ubuntu 24.04) — polkit</span></div>
+<pre><code>sudo tee /etc/polkit-1/rules.d/02-allow-colord.rules >/dev/null <<'EOF'
+polkit.addRule(function(action, subject){
+  if (action.id.indexOf(<span class="str">"org.freedesktop.color-manager."</span>)===0){ return polkit.Result.YES; }
+});
+EOF</code></pre></div>
+          <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>если всё равно чёрный экран (NVIDIA-GL по RDP) — лёгкая сессия XFCE</span></div>
+<pre><code>sudo apt install -y xfce4 xfce4-goodies
+echo <span class="str">"xfce4-session"</span> > ~/.xsession
+sudo systemctl restart xrdp</code></pre></div>
+          <p class="muted">Подключение из Windows: встроенный «Подключение к удалённому рабочему столу» (<code class="inl">mstsc</code>) → адрес <code class="inl">192.168.1.100</code> → логин <code class="inl">&lt;user&gt;</code>.</p>
+          <div class="callout key"><div class="h">Безопасность RDP по VPN — проще, чем в рунбуке</div>В рунбуке xrdp привязывался к <code class="inl">127.0.0.1</code> и заход шёл через SSH-туннель — защита на случай, когда сервер потенциально доступен из интернета. Сейчас твой WireGuard сам по себе граница: до <code class="inl">192.168.1.100</code> снаружи никак не добраться, кроме как через туннель. Поэтому можно спокойно RDP'иться прямо на <code class="inl">192.168.1.100:3389</code> по VPN — наружу порт всё равно не торчит.</div>
+          <p class="muted"><b>Defense-in-depth (опционально):</b> хочешь доп. слой — оставь xrdp на localhost и ходи туннелем.</p>
+          <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>xrdp на localhost + SSH-туннель</span></div>
+<pre><code><span class="cmt"># на DGX:</span>
+sudo sed -i 's/^port=3389/port=3389\naddress=127.0.0.1/' /etc/xrdp/xrdp.ini && sudo systemctl restart xrdp
+<span class="cmt"># затем с клиента:</span>
+ssh -L 3389:localhost:3389 &lt;user&gt;@192.168.1.100   <span class="cmt"># потом mstsc → localhost:3389</span></code></pre></div>
+          <div class="callout note"><div class="h">SSH или xrdp?</div><b>SSH</b> — основной доступ: надёжный, нетребовательный к каналу, 90% работы с DGX (CLI, Claude Code, docker, модели). <b>xrdp</b> — когда нужен именно десктоп (GUI-приложение, браузер на сервере, графика). Если DGX далеко, полный рабочий стол по RDP через VPN может подлагивать — SSH к задержкам терпимее.</div>
+          <div class="callout risk"><div class="h">Важно</div>Убедись, что <code class="inl">192.168.1.100</code> за DGX зафиксирован (резервация в Keenetic «Список устройств» или статика через nmcli, §2.1) — иначе после перезагрузки адрес уедет и доступ отвалится.</div>
+        </div>
+
+        <div class="step">
+          <div class="st-h"><span class="n">2.5</span>VPS Нидерланды (adminvps): WireGuard-exit<span class="tm">⏱ 15м</span></div>
           <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>на VPS Ubuntu</span></div>
 <pre><code>sudo apt update && sudo apt install -y wireguard
 umask 077
@@ -389,11 +424,11 @@ AllowedIPs = 10.7.0.2/32</code></pre></div>
         </div>
 
         <div class="step">
-          <div class="st-h"><span class="n">2.5</span>DGX: vopono + Claude через netns<span class="tm">⏱ 10м</span></div>
+          <div class="st-h"><span class="n">2.6</span>DGX: vopono + Claude через netns<span class="tm">⏱ 10м</span></div>
           <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>DGX: клиентский ключ</span></div>
 <pre><code>umask 077
 wg genkey | tee ~/dgx_client.key | wg pubkey | tee ~/dgx_client.pub
-<span class="cmt"># ~/dgx_client.pub впиши в [Peer] на VPS (шаг 2.4)</span></code></pre></div>
+<span class="cmt"># ~/dgx_client.pub впиши в [Peer] на VPS (шаг 2.5)</span></code></pre></div>
           <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>~/claude-exit.wg.conf (DGX)</span></div>
 <pre><code>[Interface]
 PrivateKey = &lt;dgx_client.key&gt;
@@ -413,7 +448,7 @@ curl -s ifconfig.me                                                             
         </div>
 
         <div class="step">
-          <div class="st-h"><span class="n">2.6</span>DGX: локальная модель (Ollama)<span class="tm">⏱ 5м</span></div>
+          <div class="st-h"><span class="n">2.7</span>DGX: локальная модель (Ollama)<span class="tm">⏱ 5м</span></div>
           <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>Ollama + контекст 64K</span></div>
 <pre><code>curl -fsSL https://ollama.com/install.sh | sh
 <span class="cmt"># контекст ≥64K: sudo systemctl edit ollama →</span>
@@ -437,30 +472,20 @@ sudo netbird up
 netbird status</code></pre></div>
         </div>
 
-        <div class="step"><div class="st-h"><span class="n">3.2</span>xrdp (GUI, hardened)</div>
-          <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>DGX</span></div>
-<pre><code>sudo apt install -y xrdp && sudo adduser xrdp ssl-cert
-sudo sed -i 's/^port=3389/port=3389\naddress=127.0.0.1/' /etc/xrdp/xrdp.ini
-sudo systemctl enable --now xrdp
-sudo tee /etc/polkit-1/rules.d/02-allow-colord.rules >/dev/null <<'EOF'
-polkit.addRule(function(action, subject){
-  if (action.id.indexOf("org.freedesktop.color-manager.")===0){ return polkit.Result.YES; }
-});
-EOF</code></pre></div>
-          <p class="muted">Заход: <code class="inl">ssh -L 3389:localhost:3389 cloud@&lt;wg/netbird-ip&gt;</code> → RDP на <code class="inl">localhost:3389</code>. Чёрный экран на GNOME → <code class="inl">sudo apt install -y xfce4 &amp;&amp; echo xfce4-session &gt; ~/.xsession</code>.</p>
-        </div>
-
-        <div class="step"><div class="st-h"><span class="n">3.3</span>UFW firewall</div>
+        <div class="step"><div class="st-h"><span class="n">3.2</span>UFW firewall</div>
           <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>DGX</span></div>
 <pre><code>sudo apt install -y ufw
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
-sudo ufw allow 51820/udp                                   <span class="cmt"># WireGuard inbound</span>
-sudo ufw allow from 10.10.0.0/24 to any port 22 proto tcp  <span class="cmt"># SSH из VPN</span>
+sudo ufw allow from 192.168.1.0/24 to any port 22 proto tcp    <span class="cmt"># SSH из дом. сети / VPN</span>
+sudo ufw allow from 192.168.1.0/24 to any port 3389 proto tcp  <span class="cmt"># xrdp из дом. сети / VPN</span>
+sudo ufw allow from 10.50.0.0/24 to any port 22 proto tcp      <span class="cmt"># SSH от WG-клиентов Keenetic (если роутер не NAT-ит туннель)</span>
+<span class="cmt"># только если WG терминируется на самом DGX (альтернатива §2.3):</span>
+<span class="cmt"># sudo ufw allow 51820/udp</span>
 sudo ufw enable</code></pre></div>
         </div>
 
-        <div class="step"><div class="st-h"><span class="n">3.4</span>vopono как systemd</div>
+        <div class="step"><div class="st-h"><span class="n">3.3</span>vopono как systemd</div>
           <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>DGX</span></div>
 <pre><code>sudo systemctl enable --now vopono-daemon
 <span class="cmt"># дальше vopono exec ... запускаешь обычным юзером</span></code></pre></div>
