@@ -63,12 +63,11 @@
   .scopebar .inner{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
   .scopebar .lbl{font-family:var(--mono);font-size:12px;color:var(--faint)}
   .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-  .seg label{font-family:var(--mono);font-size:12.5px;color:var(--muted);background:transparent;border:0;padding:8px 14px;cursor:pointer;transition:.15s;border-right:1px solid var(--line)}
-  .seg label:last-child{border-right:0}
-  .seg label:hover{color:var(--ink);background:rgba(255,255,255,.04)}
+  .seg button{font-family:var(--mono);font-size:12.5px;color:var(--muted);background:transparent;border:0;padding:8px 14px;cursor:pointer;transition:.15s;border-right:1px solid var(--line)}
+  .seg button:last-child{border-right:0}
+  .seg button:hover{color:var(--ink);background:rgba(255,255,255,.04)}
   .scope-hint{font-size:12.5px;color:var(--faint)}
-  .scope-radio{position:absolute;width:1px;height:1px;margin:0;padding:0;opacity:0}
-  .seg label.is-active{color:var(--bg);background:var(--vpn);font-weight:700}
+  .seg button.is-active{color:var(--bg);background:var(--vpn);font-weight:700}
   .scope-hint b{display:none;font-weight:400}
   body[data-scope="min"] .h-min,
   body[data-scope="opt"] .h-opt,
@@ -188,10 +187,10 @@
 <div class="scopebar">
   <div class="wrap inner">
     <span class="lbl">показать уровень:</span>
-    <div class="seg" role="radiogroup" aria-label="Выбор уровня">
-      <label><input type="radio" name="scope" id="scope-min" class="scope-radio" value="min">Минимальный</label>
-      <label><input type="radio" name="scope" id="scope-opt" class="scope-radio" value="opt">Оптимальный</label>
-      <label><input type="radio" name="scope" id="scope-max" class="scope-radio" value="max" checked>Максимальный</label>
+    <div class="seg" role="group" aria-label="Выбор уровня">
+      <button type="button" class="scope-btn" data-scope-value="min">Минимальный</button>
+      <button type="button" class="scope-btn" data-scope-value="opt">Оптимальный</button>
+      <button type="button" class="scope-btn" data-scope-value="max">Максимальный</button>
     </div>
     <span class="scope-hint">
       <b class="h-min">показан только минимальный уровень</b>
@@ -537,18 +536,17 @@ sudo ufw enable</code></pre></div>
 <script>
   // ---- scope filter ----
   (function(){
-    var radios=document.querySelectorAll('.scope-radio');
-    function syncScope(){
-      var checked=document.querySelector('.scope-radio:checked');
-      if(!checked) return;
-      document.body.dataset.scope=checked.value;
-      radios.forEach(function(r){
-        var lbl=r.closest('label');
-        if(lbl) lbl.classList.toggle('is-active',r.checked);
+    var btns=[].slice.call(document.querySelectorAll('.scope-btn'));
+    function setScope(value){
+      document.body.setAttribute('data-scope',value);
+      btns.forEach(function(b){
+        b.classList.toggle('is-active',b.getAttribute('data-scope-value')===value);
       });
     }
-    radios.forEach(function(r){ r.addEventListener('change',syncScope); });
-    syncScope();
+    btns.forEach(function(b){
+      b.addEventListener('click',function(){ setScope(b.getAttribute('data-scope-value')); });
+    });
+    setScope(document.body.getAttribute('data-scope') || 'max');
   })();
 
   // ---- copy buttons (инжектим в каждый .code-top) ----
