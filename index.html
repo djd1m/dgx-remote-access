@@ -113,6 +113,14 @@
   .callout.risk{border-left-color:var(--warn);background:var(--warn-dim)}.callout.risk .h{color:var(--warn)}
   .callout.note{border-left-color:var(--vpn)}.callout.note .h{color:var(--vpn)}
 
+  .alt{margin:14px 0 0;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+  .alt>summary{cursor:pointer;padding:13px 16px;font-family:var(--mono);font-size:12.5px;color:var(--muted);list-style:none;user-select:none}
+  .alt>summary::-webkit-details-marker{display:none}
+  .alt>summary::before{content:"▸";color:var(--vpn);margin-right:8px;display:inline-block}
+  .alt[open]>summary::before{content:"▾"}
+  .alt>summary:hover{color:var(--ink)}
+  .alt-body{padding:2px 16px 14px}
+
   .code{position:relative;margin:0 0 14px;border:1px solid var(--line);border-radius:12px;background:#070b14;overflow:hidden}
   .code-top{display:flex;align-items:center;justify-content:space-between;padding:7px 11px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
   .code-top .cap{font-family:var(--mono);font-size:11px;color:var(--faint);display:flex;align-items:center;gap:8px}
@@ -161,14 +169,14 @@
   <section class="hero" id="top">
     <div class="eyebrow">единый runbook · DGX OS 7 · ARM64</div>
     <h1>Доступ <span class="em">к</span> DGX и <span class="em">с</span> DGX.<br>Без обрывов.</h1>
-    <p class="lede">Надёжный удалённый доступ к Spark, Split-VPN для Claude Code (только нужная консоль через exit) и локальные модели — в одной инструкции. Уровни <b>минимальный → оптимальный → максимальный</b>, с настройками на DGX, роутере TP-Link и облачных VPS.</p>
+    <p class="lede">Надёжный удалённый доступ к Spark, Split-VPN для Claude Code (только нужная консоль через exit) и локальные модели — в одной инструкции. Уровни <b>минимальный → оптимальный → максимальный</b>, с настройками на DGX, роутере Keenetic и облачных VPS.</p>
     <span class="clock">◷ минимальный уровень — примерно за час</span>
 
     <div class="planes">
       <div class="plane in"><h3><span class="d"></span>доступ К DGX (inbound)</h3>
         <div class="hop"><span class="k">ноут →</span> home static IP</div>
-        <div class="hop"><span class="k">TP-Link →</span> проброс UDP на DGX</div>
-        <div class="hop"><span class="k">DGX:</span> WireGuard / NetBird · SSH · xrdp</div>
+        <div class="hop"><span class="k">Keenetic:</span> WireGuard-сервер → вся LAN</div>
+        <div class="hop"><span class="k">DGX:</span> SSH · xrdp · NetBird</div>
       </div>
       <div class="plane out"><h3><span class="d"></span>доступ С DGX к Claude (outbound)</h3>
         <div class="hop"><span class="k">netns:</span> claude → wg0</div>
@@ -225,7 +233,7 @@
           <thead><tr><th>Узел</th><th>Где</th><th>Роль</th><th>С уровня</th></tr></thead>
           <tbody>
             <tr><td>DGX Spark</td><td class="tag-home">дома</td><td>всё крутится здесь</td><td>все</td></tr>
-            <tr><td>TP-Link (роутер)</td><td class="tag-home">дома</td><td>проброс 1 UDP-порта + DHCP-резервация</td><td>минимальный</td></tr>
+            <tr><td>Keenetic (роутер)</td><td class="tag-home">дома</td><td>WireGuard-сервер + фиксированный IP</td><td>минимальный</td></tr>
             <tr><td>VPS adminvps</td><td class="tag-nl">Нидерланды</td><td>WireGuard-exit для egress Claude</td><td>минимальный</td></tr>
             <tr><td>VPS cloud.ru</td><td class="tag-rf">РФ</td><td>self-hosted NetBird control plane</td><td>максимальный</td></tr>
           </tbody>
@@ -242,7 +250,7 @@
         <table class="tbl">
           <thead><tr><th>Плоскость</th><th>Минимальный (~1ч)</th><th>Оптимальный</th><th>Максимальный</th></tr></thead>
           <tbody>
-            <tr><td>Доступ К DGX</td><td>WireGuard + TP-Link</td><td>+ NetBird mesh (SaaS)</td><td>+ self-hosted NetBird (cloud.ru)</td></tr>
+            <tr><td>Доступ К DGX</td><td>WireGuard-сервер на Keenetic</td><td>+ NetBird mesh (SaaS)</td><td>+ self-hosted NetBird (cloud.ru)</td></tr>
             <tr><td>GUI</td><td>SSH-туннель</td><td>+ xrdp (hardened)</td><td>—</td></tr>
             <tr><td>Доступ С DGX к Claude</td><td>vopono + NL-exit</td><td>+ vopono как systemd</td><td>+ NL-exit как NetBird exit-node</td></tr>
             <tr><td>Firewall</td><td>базовый</td><td>UFW deny-by-default</td><td>+ fail2ban / 2FA</td></tr>
@@ -257,17 +265,17 @@
         <div class="sec-head"><span class="idx">02</span><h2>Минимальный уровень</h2><span class="tierbadge">◷ ~1 час</span></div>
 
         <div class="step">
-          <div class="st-h"><span class="n">2.1</span>TP-Link: публичный WAN + резервация IP<span class="tm">⏱ 5м</span></div>
+          <div class="st-h"><span class="n">2.1</span>Keenetic: статический IP провайдера + фиксированный IP сервера<span class="tm">⏱ 5м</span></div>
           <ul class="clean">
-            <li>Вход на роутер: <code class="inl">http://tplinkwifi.net</code> (или <code class="inl">192.168.0.1</code>).</li>
-            <li>Публичный WAN (не CGNAT): <b>Advanced → Status → WAN IP Address</b>, сравни с <code class="inl">curl ifconfig.me</code>. Различаются → CGNAT, проброс не сработает.</li>
-            <li>Резервация: <b>Advanced → Network → DHCP Server → Address Reservation</b> → MAC <code class="inl">wlP9s9</code> → <code class="inl">192.168.0.50</code>.</li>
-            <li><i>(Опционально, belt-and-suspenders)</i> статика на самом DGX через NetworkManager — держится независимо от роутера. <b>Для минимума достаточно резервации выше;</b> адрес должен быть тот же.</li>
+            <li>Вход в роутер: <code class="inl">http://my.keenetic.net</code> (или <code class="inl">192.168.1.1</code>).</li>
+            <li>Публичный IP (не CGNAT): <b>Системный монитор → панель «Интернет» → IP-адрес</b>, сравни с <code class="inl">curl ifconfig.me</code> с любого устройства сети. Купленный статический IP — это он. Не совпало или адрес из <code class="inl">10/172.16/192.168/100.64</code> → серый IP/CGNAT, входящий проброс не сработает.</li>
+            <li>Фиксированный IP для сервера (подключение по Wi-Fi роли не играет): <b>Список устройств</b> → выбери сервер → <b>Зарегистрировать</b> и включить <b>«Постоянный IP-адрес»</b> → <code class="inl">192.168.1.50</code>. Работает одинаково для Wi-Fi и кабельных клиентов.</li>
+            <li><i>(Опционально, belt-and-suspenders)</i> статика на самом сервере через NetworkManager — держится независимо от роутера. <b>Достаточно регистрации выше;</b> адрес должен быть тот же.</li>
           </ul>
-          <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>опционально: статика на DGX (nmcli)</span></div>
+          <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>опционально: статика на сервере (nmcli)</span></div>
 <pre><code>nmcli connection show --active                       <span class="cmt"># узнать имя WiFi-профиля</span>
 nmcli connection modify <span class="str">"&lt;wifi-profile&gt;"</span> ipv4.method manual \
-  ipv4.addresses 192.168.0.50/24 ipv4.gateway 192.168.0.1 ipv4.dns <span class="str">"1.1.1.1 8.8.8.8"</span>
+  ipv4.addresses 192.168.1.50/24 ipv4.gateway 192.168.1.1 ipv4.dns <span class="str">"1.1.1.1 8.8.8.8"</span>
 nmcli connection up <span class="str">"&lt;wifi-profile&gt;"</span></code></pre></div>
         </div>
 
@@ -276,8 +284,8 @@ nmcli connection up <span class="str">"&lt;wifi-profile&gt;"</span></code></pre>
           <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>на клиенте → потом на DGX</span></div>
 <pre><code><span class="cmt"># КЛИЕНТ: ключ + копирование (пока по паролю)</span>
 ssh-keygen -t ed25519 -C <span class="str">"dgx-access"</span>
-ssh-copy-id cloud@192.168.0.50
-ssh cloud@192.168.0.50   <span class="cmt"># проверь вход ПО КЛЮЧУ</span>
+ssh-copy-id cloud@192.168.1.50
+ssh cloud@192.168.1.50   <span class="cmt"># проверь вход ПО КЛЮЧУ</span>
 
 <span class="cmt"># DGX: закрутить гайки</span>
 sudo tee /etc/ssh/sshd_config.d/99-hardening.conf >/dev/null <<'EOF'
@@ -290,15 +298,46 @@ MaxAuthTries 3
 EOF
 sudo systemctl restart ssh</code></pre></div>
           <div class="callout risk"><div class="h">Порядок важен</div>Сначала убедись, что ключ работает, ПОТОМ отключай пароль — иначе закроешь себе доступ.</div>
+          <div class="callout note"><div class="h">Альтернатива без VPN: прямой проброс SSH на Keenetic</div>
+            <b>Сетевые правила → Переадресация → Добавить правило.</b>
+            <b>Вход:</b> твоё интернет-подключение (провайдер).
+            <b>Выход:</b> сервер <code class="inl">192.168.1.50</code> (выбери из списка устройств).
+            <b>Протокол:</b> TCP.
+            <b>Открыть порт</b> (внешний) <code class="inl">49222</code> → <b>переадресовать на порт</b> (внутренний) <code class="inl">22</code>.
+            Не пробрасывай внешний <code class="inl">22</code> — на нестандартном порту в разы меньше брутфорса. Keenetic сам открывает фаервол для проброшенного порта. По возможности заполни <b>«Разрешённые адреса источника»</b> своим IP.
+            Заход извне: <code class="inl">ssh -p 49222 cloud@&lt;статический_IP&gt;</code>. Пароль отключён, на сервере <code class="inl">fail2ban</code> (уровень «максимальный») — прямой SSH приемлем. Но <b>рекомендуемый путь — WireGuard-сервер на роутере (шаг 2.3)</b>: тогда наружу не торчит вообще ничего, а SSH ходит внутри туннеля.</div>
         </div>
 
         <div class="step">
-          <div class="st-h"><span class="n">2.3</span>DGX: WireGuard inbound + проброс на TP-Link<span class="tm">⏱ 15м</span></div>
-          <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>DGX: ключи + сервер</span></div>
+          <div class="st-h"><span class="n">2.3</span>Keenetic: WireGuard-сервер на роутере<span class="tm">⏱ 15м</span></div>
+          <p class="muted">Туннель терминируется на самом роутере: на сервере наружу не открыто ничего, проброс портов не нужен, а после подключения доступна вся домашняя сеть (DGX + любые устройства). Рекомендуемый путь для Keenetic.</p>
+          <ul class="clean">
+            <li>Компонент: <b>Общие настройки → Обновления и компоненты → Изменить набор компонентов</b> → включи <b>WireGuard</b>. Обнови KeeneticOS до актуальной (в свежих версиях есть мастер «WireGuard VPN-сервер»).</li>
+            <li>Подключение: <b>Интернет → Другие подключения → WireGuard → Добавить</b>. Сгенерируй пару ключей, адрес интерфейса <code class="inl">10.50.0.1/24</code>, порт прослушивания <code class="inl">51820</code>.</li>
+            <li>Пир (ноут/телефон): вставь <b>публичный ключ клиента</b>, его <i>Allowed IPs</i> = <code class="inl">10.50.0.2/32</code>. Скопируй <b>публичный ключ роутера</b> для клиентского конфига.</li>
+            <li><b>Доступ к LAN</b> (ключевой момент): в настройках WG-подключения выключи «Использовать для выхода в интернет» и разреши трафик из <code class="inl">10.50.0.0/24</code> к домашнему сегменту (в зависимости от версии KeeneticOS — регистрация интерфейса в домашнем сегменте или правило фаервола WG→LAN).</li>
+          </ul>
+          <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>клиентский конфиг (ноут/телефон)</span></div>
+<pre><code>[Interface]
+PrivateKey = &lt;client_private_key&gt;
+Address = 10.50.0.2/32
+
+[Peer]
+PublicKey = &lt;keenetic_public_key&gt;
+Endpoint = &lt;ДОМАШНИЙ_СТАТИЧЕСКИЙ_IP&gt;:51820
+AllowedIPs = 192.168.1.0/24        <span class="cmt"># вся домашняя сеть, включая сервер</span>
+PersistentKeepalive = 25</code></pre></div>
+          <div class="callout key"><div class="h">Готово</div>Поднимаешь туннель → <code class="inl">ssh cloud@192.168.1.50</code>. SSH никуда наружу не торчит. В мобильном приложении Keenetic пир добавляется в пару кликов с генерацией <b>QR-кода</b>. Проброс портов на роутере не требуется — он сам принимает UDP 51820.</div>
+
+          <details class="alt">
+            <summary>Альтернатива: терминировать WireGuard на сервере (если не доверяешь прошивке роутера или нужен zero-trust строго к одному хосту)</summary>
+            <div class="alt-body">
+              <p class="muted">Роутер только пробрасывает UDP-порт, а туннель завершается на сервере. Больше движущихся частей, наружу проброшен порт, доступ — только к серверу.</p>
+              <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>сервер: ключи + интерфейс</span></div>
 <pre><code>sudo apt update && sudo apt install -y wireguard
 umask 077
 wg genkey | sudo tee /etc/wireguard/in_server.key | wg pubkey | sudo tee /etc/wireguard/in_server.pub</code></pre></div>
-          <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>/etc/wireguard/wg-in.conf (DGX)</span></div>
+              <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>/etc/wireguard/wg-in.conf (сервер)</span></div>
 <pre><code>[Interface]
 Address = 10.10.0.1/24
 ListenPort = 51820
@@ -307,8 +346,8 @@ PrivateKey = &lt;in_server.key&gt;
 [Peer]                           <span class="cmt"># твой ноут/телефон</span>
 PublicKey = &lt;client_public_key&gt;
 AllowedIPs = 10.10.0.2/32</code></pre></div>
-          <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>запуск + клиентский конфиг</span></div>
-<pre><code><span class="cmt"># DGX:</span>
+              <div class="code"><div class="code-top"><span class="cap"><span class="lamp"></span>запуск + клиентский конфиг</span></div>
+<pre><code><span class="cmt"># сервер:</span>
 sudo systemctl enable --now wg-quick@wg-in && sudo wg show
 
 <span class="cmt"># КЛИЕНТ (Endpoint = домашний статический IP):</span>
@@ -320,7 +359,9 @@ PublicKey = &lt;in_server_public_key&gt;
 Endpoint = &lt;ДОМАШНИЙ_СТАТИЧЕСКИЙ_IP&gt;:51820
 AllowedIPs = 10.10.0.1/32
 PersistentKeepalive = 25</code></pre></div>
-          <div class="callout note"><div class="h">TP-Link проброс</div><b>Advanced → NAT Forwarding → Virtual Servers → Add</b>: External 51820, Internal 51820, Internal IP <code class="inl">192.168.0.50</code>, Protocol <b>UDP</b>. Больше ничего наружу.</div>
+              <div class="callout note"><div class="h">Keenetic: проброс на сервер</div><b>Сетевые правила → Переадресация → Добавить правило</b>: вход — интернет-подключение; выход — сервер <code class="inl">192.168.1.50</code>; протокол <b>UDP</b>; внешний <code class="inl">51820</code> → внутренний <code class="inl">51820</code>. Больше ничего наружу.</div>
+            </div>
+          </details>
         </div>
 
         <div class="step">
@@ -466,12 +507,13 @@ sudo ufw enable</code></pre></div>
               <li>проверки: <code class="inl">sudo wg show</code> · <code class="inl">vopono list namespaces</code></li>
             </ul>
           </div>
-          <div class="ncard home"><h4>TP-Link<span class="where">дома</span></h4>
+          <div class="ncard home"><h4>Keenetic<span class="where">дома</span></h4>
             <ul>
-              <li>Вход: <code class="inl">http://tplinkwifi.net</code></li>
-              <li>Публичный WAN: <b>Advanced → Status</b></li>
-              <li>Резервация: <b>Advanced → Network → DHCP Server → Address Reservation</b></li>
-              <li>Проброс: <b>Advanced → NAT Forwarding → Virtual Servers</b> · UDP 51820 → 192.168.0.50</li>
+              <li>Вход: <code class="inl">http://my.keenetic.net</code></li>
+              <li>Публичный IP: <b>Системный монитор → Интернет</b></li>
+              <li>Фикс. IP: <b>Список устройств → Постоянный IP-адрес</b></li>
+              <li>WG-сервер: <b>Интернет → Другие подключения → WireGuard</b> · UDP 51820, доступ к LAN</li>
+              <li><i>(альт.)</i> Проброс: <b>Сетевые правила → Переадресация</b> · TCP 49222→22</li>
             </ul>
           </div>
           <div class="ncard nl"><h4>VPS adminvps<span class="where">Нидерланды</span></h4>
@@ -497,7 +539,7 @@ sudo ufw enable</code></pre></div>
         <div class="sec-head"><span class="idx">06</span><h2>Проверки и грабли</h2></div>
         <ul class="clean">
           <li><b>Split работает?</b> В netns <code class="inl">curl ifconfig.me</code> = IP NL-VPS; в host = домашний IP.</li>
-          <li><b>CGNAT:</b> WAN в TP-Link ≠ <code class="inl">curl ifconfig.me</code> → серый IP, inbound-проброс не сработает.</li>
+          <li><b>CGNAT:</b> IP в Keenetic (<b>Системный монитор → Интернет</b>) ≠ <code class="inl">curl ifconfig.me</code> → серый IP, inbound-проброс не сработает.</li>
           <li><b>SSH закрылся</b> после <code class="inl">PasswordAuthentication no</code> → ключ не был проверен; чини из локальной консоли.</li>
           <li><b>Claude Code + SOCKS нельзя</b> (только HTTP/HTTPS) → для лёгкой альтернативы нужен HTTP-CONNECT-прокси на NL-VPS + <code class="inl">export HTTPS_PROXY=...</code>.</li>
           <li><b>vopono на ARM64</b> → собирается из исходников; нужен <code class="inl">wireguard-tools</code>.</li>
@@ -517,7 +559,7 @@ sudo ufw enable</code></pre></div>
           <a class="chip gov" href="https://docs.netbird.io/selfhosted/selfhosted-quickstart" target="_blank" rel="noopener"><span class="o">official</span>NetBird · self-hosting</a>
           <a class="chip gov" href="https://code.claude.com/docs/en/network-config" target="_blank" rel="noopener"><span class="o">official</span>Claude Code · Network config</a>
           <a class="chip gov" href="https://docs.anthropic.com/en/docs/claude-code/corporate-proxy" target="_blank" rel="noopener"><span class="o">official</span>Claude Code · Corporate proxy</a>
-          <a class="chip gov" href="https://www.tp-link.com/us/support/faq/1379/" target="_blank" rel="noopener"><span class="o">official</span>TP-Link · Port forwarding</a>
+          <a class="chip gov" href="https://help.keenetic.com/hc/en-us/articles/213965789-Port-forwarding" target="_blank" rel="noopener"><span class="o">official</span>Keenetic · Port forwarding</a>
           <a class="chip gov" href="https://github.com/NVIDIA/dgx-spark-playbooks/tree/main/nvidia/sglang" target="_blank" rel="noopener"><span class="o">official</span>NVIDIA · SGLang playbook</a>
           <a class="chip" href="https://ollama.com" target="_blank" rel="noopener"><span class="o">site</span>Ollama</a>
         </div>
